@@ -30,21 +30,21 @@ jobs:
       - name: Build frontend
         run: yarn run build --env production
 
-      - name: Build backend (linux-x64)
+      - name: Build backend (linux-musl-x64)
         run: |
           dotnet msbuild -restore src/Prowlarr.sln \
             -p:SelfContained=True \
             -p:Configuration=Release \
             -p:Platform=Posix \
-            -p:RuntimeIdentifiers=linux-x64 \
+            -p:RuntimeIdentifiers=linux-musl-x64 \
             -t:PublishAllRids
 
-      - name: Package linux-x64
+      - name: Package linux-musl-x64
         run: |
-          folder="_artifacts/linux-x64/net8.0/Prowlarr"
+          folder="_artifacts/linux-musl-x64/net8.0/Prowlarr"
           mkdir -p "$folder"
-          cp -r _output/net8.0/linux-x64/publish/* "$folder"
-          cp -r _output/Prowlarr.Update/net8.0/linux-x64/publish "$folder/Prowlarr.Update"
+          cp -r _output/net8.0/linux-musl-x64/publish/* "$folder"
+          cp -r _output/Prowlarr.Update/net8.0/linux-musl-x64/publish "$folder/Prowlarr.Update"
           cp -r _output/UI "$folder"
           cp LICENSE "$folder"
           rm -f "$folder"/ServiceUninstall.*
@@ -56,10 +56,10 @@ jobs:
 
       - name: Zip package
         run: |
-          cd _artifacts/linux-x64/net8.0
-          zip -r Prowlarr.linux-x64.net8.0.zip Prowlarr
+          cd _artifacts/linux-musl-x64/net8.0
+          zip -r Prowlarr.linux-musl-x64.net8.0.zip Prowlarr
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Prowlarr.linux-x64.net8.0
-          path: _artifacts/linux-x64/net8.0/Prowlarr.linux-x64.net8.0.zip
+          name: Prowlarr.linux-musl-x64.net8.0
+          path: _artifacts/linux-musl-x64/net8.0/Prowlarr.linux-musl-x64.net8.0.zip
