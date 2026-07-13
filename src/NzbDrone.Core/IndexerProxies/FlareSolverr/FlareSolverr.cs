@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using FluentValidation.Results;
 using Newtonsoft.Json;
 using NLog;
@@ -63,18 +64,7 @@ namespace NzbDrone.Core.IndexerProxies.FlareSolverr
 
             var result = JsonConvert.DeserializeObject<FlareSolverrResponse>(flaresolverrResponse.Content);
 
-            var newRequest = response.Request;
-
-            //Cache the user-agent so we can inject it in next request to avoid re-solve
-            _cache.Set(response.Request.Url.Host, result.Solution.UserAgent);
-            newRequest.Headers.UserAgent = result.Solution.UserAgent;
-
-            InjectCookies(newRequest, result);
-
-            //Request again with User-Agent and Cookies from Flaresolverr
-            var finalResponse = _httpClient.Execute(newRequest);
-
-            return finalResponse;
+            return new HttpResponse(response.Request, flaresolverrResponse.Headers, new CookieCollection(), Encoding.UTF8.GetBytes(result.Solution.Response));
         }
 
         private void InjectCookies(HttpRequest request, FlareSolverrResponse flareSolverrResponse)
