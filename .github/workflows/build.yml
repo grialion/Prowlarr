@@ -1,0 +1,65 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Yarn install
+        run: yarn install --frozen-lockfile --network-timeout 120000
+
+      - name: Build frontend
+        run: yarn run build --env production
+
+      - name: Build backend (linux-x64)
+        run: |
+          dotnet msbuild -restore src/Prowlarr.sln \
+            -p:SelfContained=True \
+            -p:Configuration=Release \
+            -p:Platform=Posix \
+            -p:RuntimeIdentifiers=linux-x64 \
+            -t:PublishAllRids
+
+      - name: Package linux-x64
+        run: |
+          folder="_artifacts/linux-x64/net8.0/Prowlarr"
+          mkdir -p "$folder"
+          cp -r _output/net8.0/linux-x64/publish/* "$folder"
+          cp -r _output/Prowlarr.Update/net8.0/linux-x64/publish "$folder/Prowlarr.Update"
+          cp -r _output/UI "$folder"
+          cp LICENSE "$folder"
+          rm -f "$folder"/ServiceUninstall.*
+          rm -f "$folder"/ServiceInstall.*
+          rm -f "$folder"/Prowlarr.Windows.*
+          cp "$folder"/Prowlarr.Mono.* "$folder/Prowlarr.Update" || true
+          cp "$folder"/Mono.Posix.NETStandard.* "$folder/Prowlarr.Update" || true
+          cp "$folder"/libMonoPosixHelper.* "$folder/Prowlarr.Update" || true
+
+      - name: Zip package
+        run: |
+          cd _artifacts/linux-x64/net8.0
+          zip -r Prowlarr.linux-x64.net8.0.zip Prowlarr
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Prowlarr.linux-x64.net8.0
+          path: _artifacts/linux-x64/net8.0/Prowlarr.linux-x64.net8.0.zip
