@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -13,7 +12,6 @@ using NzbDrone.Common.Extensions;
 using NzbDrone.Common.Http;
 using NzbDrone.Common.Http.Proxy;
 using NzbDrone.Common.Serializer;
-using NzbDrone.Core.Http.CloudFlare;
 using NzbDrone.Core.Localization;
 using NzbDrone.Core.Validation;
 
@@ -21,68 +19,26 @@ namespace NzbDrone.Core.IndexerProxies.FlareSolverr
 {
     public class FlareSolverr : HttpIndexerProxyBase<FlareSolverrSettings>
     {
-        private readonly ICached<string> _cache;
         private readonly IHttpProxySettingsProvider _proxySettingsProvider;
 
         public FlareSolverr(IHttpProxySettingsProvider proxySettingsProvider, IProwlarrCloudRequestBuilder cloudRequestBuilder, IHttpClient httpClient, Logger logger, ILocalizationService localizationService, ICacheManager cacheManager)
             : base(cloudRequestBuilder, httpClient, logger, localizationService)
         {
             _proxySettingsProvider = proxySettingsProvider;
-            _cache = cacheManager.GetCache<string>(typeof(string), "UserAgent");
         }
 
         public override string Name => "FlareSolverr";
 
         public override HttpRequest PreRequest(HttpRequest request)
         {
-            //Try original request first, ignore errors, detect CF in post response
-            request.SuppressHttpError = true;
-
-            //Inject UA if not present
-            if (_cache.Find(request.Url.Host).IsNotNullOrWhiteSpace() && request.Headers.UserAgent.IsNullOrWhiteSpace())
-            {
-                request.Headers.UserAgent = _cache.Find(request.Url.Host);
-            }
-
-            return request;
+            return GenerateFlareSolverrRequest(request);
         }
 
         public override HttpResponse PostResponse(HttpResponse response)
         {
-            if (!CloudFlareDetectionService.IsCloudflareProtected(response))
-            {
-                _logger.Debug("CF Protection not detected, returning original response");
-                return response;
-            }
+            var result = JsonConvert.DeserializeObject<FlareSolverrResponse>(response.Content);
 
-            var flaresolverrResponse = _httpClient.Execute(GenerateFlareSolverrRequest(response.Request));
-
-            if (flaresolverrResponse.StatusCode != HttpStatusCode.OK && flaresolverrResponse.StatusCode != HttpStatusCode.InternalServerError)
-            {
-                throw new FlareSolverrException("HTTP StatusCode not 200 or 500. Status is :" + response.StatusCode);
-            }
-
-            var result = JsonConvert.DeserializeObject<FlareSolverrResponse>(flaresolverrResponse.Content);
-
-            return new HttpResponse(response.Request, flaresolverrResponse.Headers, new CookieCollection(), Encoding.UTF8.GetBytes(result.Solution.Response));
-        }
-
-        private void InjectCookies(HttpRequest request, FlareSolverrResponse flareSolverrResponse)
-        {
-            var rCookies = flareSolverrResponse.Solution.Cookies;
-
-            if (!rCookies.Any())
-            {
-                return;
-            }
-
-            var rCookiesList = rCookies.Select(x => x.Name).ToList();
-
-            foreach (var rCookie in rCookies)
-            {
-                request.Cookies.Remove(rCookie.Name);
-                request.Cookies.Add(rCookie.Name, rCookie.Value);
-            }
+            return new HttpResponse(response.Request, response.Headers, new CookieCollection(), Encoding.UTF8.GetBytes(result.Solution.Response));
         }
 
         private HttpRequest GenerateFlareSolverrRequest(HttpRequest request)
