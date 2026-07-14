@@ -24,6 +24,28 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Restore Yarn cache dir
+        id: yarn-cache-dir
+        run: echo "dir=$(yarn cache dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Yarn + node_modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ steps.yarn-cache-dir.outputs.dir }}
+            node_modules
+          key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
       - name: Yarn install
         run: yarn install --frozen-lockfile --network-timeout 120000
 
@@ -54,12 +76,13 @@ jobs:
           cp "$folder"/Mono.Posix.NETStandard.* "$folder/Prowlarr.Update" || true
           cp "$folder"/libMonoPosixHelper.* "$folder/Prowlarr.Update" || true
 
-      - name: Zip package
+      - name: Create tar.gz (files at archive root)
         run: |
-          cd _artifacts/linux-musl-x64/net8.0
-          zip -r Prowlarr.linux-musl-x64.net8.0.zip Prowlarr
+          cd _artifacts/linux-musl-x64/net8.0/Prowlarr
+          tar -czf ../Prowlarr.linux-musl-x64.net8.0.tar.gz .
 
       - uses: actions/upload-artifact@v4
         with:
           name: Prowlarr.linux-musl-x64.net8.0
-          path: _artifacts/linux-musl-x64/net8.0/Prowlarr.linux-musl-x64.net8.0.zip
+          path: _artifacts/linux-musl-x64/net8.0/Prowlarr.linux-musl-x64.net8.0.tar.gz
+          archive: false
