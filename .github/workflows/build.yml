@@ -14,37 +14,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
-
-      - name: Restore Yarn cache dir
-        id: yarn-cache-dir
-        run: echo "dir=$(yarn cache dir)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Yarn + node_modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ steps.yarn-cache-dir.outputs.dir }}
-            node_modules
-          key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-
-
-      - name: Cache NuGet packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
+          cache: 'yarn'
 
       - name: Yarn install
         run: yarn install --frozen-lockfile --network-timeout 120000
@@ -76,12 +55,12 @@ jobs:
           cp "$folder"/Mono.Posix.NETStandard.* "$folder/Prowlarr.Update" || true
           cp "$folder"/libMonoPosixHelper.* "$folder/Prowlarr.Update" || true
 
-      - name: Create tar.gz (files at archive root)
+      - name: Create tar.gz
         run: |
           cd _artifacts/linux-musl-x64/net8.0/Prowlarr
           tar -czf ../Prowlarr.linux-musl-x64.net8.0.tar.gz .
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Prowlarr.linux-musl-x64.net8.0
           path: _artifacts/linux-musl-x64/net8.0/Prowlarr.linux-musl-x64.net8.0.tar.gz
